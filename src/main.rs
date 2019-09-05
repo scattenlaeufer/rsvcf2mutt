@@ -37,7 +37,9 @@ impl Contact {
 }
 
 fn main() {
-    let config = read_to_string("config.toml")
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("rsvcf2mutt").unwrap();
+    let xdg_config_path = xdg_dirs.place_config_file("config.toml").unwrap();
+    let config = read_to_string(xdg_config_path)
         .unwrap()
         .parse::<Value>()
         .unwrap();
