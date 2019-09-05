@@ -2,11 +2,11 @@ extern crate ical;
 extern crate toml;
 extern crate xdg;
 
-use std::fs::{read_dir, read_to_string, File};
+use std::fs::{read_dir, read_to_string, write, File};
 use std::io::BufReader;
 use toml::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 struct Email {
     email: String,
     parameter: String,
@@ -28,11 +28,32 @@ struct Contact {
 }
 
 impl Contact {
-    fn new(name: String, email: Vec<Email>) -> Contact {
+    fn new(name: String, emails: Vec<Email>) -> Contact {
+        let mut email_vec = emails;
+        email_vec.sort_by(|a, b| a.parameter.cmp(&b.parameter));
         Contact {
             name: name,
-            emails: email,
+            emails: email_vec,
         }
+    }
+
+    fn create_mutt_alias(&self) -> Vec<String> {
+        let mut alias_vec: Vec<String> = Vec::new();
+        for email in &self.emails {
+            let param = match email.parameter.as_ref() {
+                "" => "".into(),
+                "pref" => "".into(),
+                s => format!("_{}", s),
+            };
+            alias_vec.push(format!(
+                "alias {}{} {} <{}>",
+                self.name.to_lowercase().replace(" ", "_"),
+                param,
+                self.name,
+                email.email
+            ));
+        }
+        alias_vec
     }
 }
 
@@ -77,6 +98,18 @@ fn main() {
             }
         }
     }
-    println!("{:#?}", contacts);
-    println!("{}", contacts.len());
+    contacts.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut alias_vec: Vec<String> = Vec::new();
+    for contact in contacts {
+        alias_vec.append(&mut contact.create_mutt_alias());
+    }
+    let alias_string = alias_vec.join("\n");
+    let out_file_name = format!(
+        "{}/rsvcf2mutt_addressbook.muttrc",
+        config["mutt_config_path"].as_str().unwrap()
+    );
+    match write(out_file_name, alias_string) {
+        Ok(_) => (),
+        Err(e) => panic!("file error! {}", e),
+    };
 }
