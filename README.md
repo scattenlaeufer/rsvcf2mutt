@@ -18,3 +18,39 @@ spelled out explicitly.
 `rsvcf2mutt` will write a file called `rsvcf2mutt_addressbook.muttrc` in the
 directory specified in `mutt_config_path`. This file can than be sourced in the
 `muttrc` to be accessible as a address book in mutt.
+
+## systemd
+
+If `rsvcf2mutt` should be run automatically wit `systemd` the following files
+need be created:
+
+### rsvcf2mutt-oneshot.service
+
+```systemd
+[Unit]
+Description=rsvcf2mutt (oneshot)
+
+[Service]
+Type=oneshot
+ExecStart=$(PATH_TO_REPOSITORY)/target/release/rsvcf2mutt
+TimeoutStopSec=120
+```
+
+`$(PATH_TO_REPOSITORY` needs to be replaced with the path to this repo.
+`rsvcf2mutt` also needs to be compiled with the `--release` flag.
+
+### rsvcf2mutt-oneshot.timer
+
+```systemd
+[Unit]
+Description=rsvcf2mutt timer
+
+[Timer]
+OnBootSec=15m
+OnUnitInactiveSec=24h
+
+[Install]
+WantedBy=default.target
+```
+
+Afterward the timer needs to be started with `systemctl --user start rsvcf2mutt-oneshot.timer` and enabled to run on login with `systemctl --user enable rsvcf2mutt-oneshot.timer`.
