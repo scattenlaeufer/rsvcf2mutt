@@ -58,19 +58,39 @@ impl Contact {
 }
 
 fn main() {
-    let xdg_dirs = xdg::BaseDirectories::with_prefix("rsvcf2mutt").unwrap();
+    let xdg_dirs = match xdg::BaseDirectories::with_prefix("rsvcf2mutt") {
+        Ok(dir) => dir,
+        Err(e) => panic!("XDG error! {}", e),
+    };
     let xdg_config_path = xdg_dirs.place_config_file("config.toml").unwrap();
-    let config = read_to_string(xdg_config_path)
-        .unwrap()
-        .parse::<Value>()
-        .unwrap();
-    let contact_file_list = read_dir(config["contact_path"].as_str().unwrap()).unwrap();
+    let config_string = match read_to_string(xdg_config_path) {
+        Ok(s) => s,
+        Err(e) => panic!("error reading config file! {}", e),
+    };
+    let config = match config_string.parse::<Value>() {
+        Ok(c) => c,
+        Err(e) => panic!("error parsing toml! {}", e),
+    };
+    let contact_path = match config["contact_path"].as_str() {
+        Some(p) => p,
+        None => panic!("contact_path setting not found in config file!"),
+    };
+    let contact_file_list = match read_dir(contact_path) {
+        Ok(c) => c,
+        Err(e) => panic!("error reading contact directory! {}", e),
+    };
     let mut contacts: Vec<Contact> = Vec::new();
     for contact_file_name_result in contact_file_list {
         let contact_file_name = contact_file_name_result.unwrap();
         // TODO: Find a better way to skip on any file that doesn't end with .vcf
-        if contact_file_name.file_name() == "displayname" {
-            continue;
+        match contact_file_name
+            .file_name()
+            .into_string()
+            .unwrap()
+            .as_ref()
+        {
+            "displayname" => continue,
+            _ => (),
         }
         let buf = BufReader::new(File::open(contact_file_name.path()).unwrap());
 
@@ -106,7 +126,10 @@ fn main() {
     let alias_string = alias_vec.join("\n");
     let out_file_name = format!(
         "{}/rsvcf2mutt_addressbook.muttrc",
-        config["mutt_config_path"].as_str().unwrap()
+        match config["mutt_config_path"].as_str() {
+            Some(m) => m,
+            None => panic!("mutt_config_path setting not found in config file!"),
+        }
     );
     match write(out_file_name, alias_string) {
         Ok(_) => (),
