@@ -82,16 +82,14 @@ fn main() {
     let mut contacts: Vec<Contact> = Vec::new();
     for contact_file_name_result in contact_file_list {
         let contact_file_name = contact_file_name_result.unwrap();
-        // TODO: Find a better way to skip on any file that doesn't end with .vcf
-        match contact_file_name
-            .file_name()
-            .into_string()
-            .unwrap()
-            .as_ref()
-        {
-            "displayname" => continue,
-            _ => (),
+        match contact_file_name.path().extension() {
+            Some(s) => match s.to_str() {
+                Some("vcf") => (),
+                _ => continue,
+            },
+            None => continue,
         }
+
         let buf = BufReader::new(File::open(contact_file_name.path()).unwrap());
 
         let reader = ical::VcardParser::new(buf);
